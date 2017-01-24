@@ -21,6 +21,7 @@ void mds_api_stackdump_init(void);
 
 #define MAX_RET_BUFF_SIZE 1024
 
+#define DEBUG_PRINT_INTERVAL_SEC    10
 // ------------------------------------------------
 // nmea call back
 // ------------------------------------------------
@@ -28,6 +29,8 @@ void mds_gps_tools_nmea_callback(long long int timestamp, const char *nmea, int 
 {
     static char send_buff[1024] = {0,};
     static int send_to_size = 0;
+
+    static int print_interval = 0;
 
     int cur_sec = timestamp % 10000;
     static int last_sec = cur_sec;
@@ -52,7 +55,13 @@ void mds_gps_tools_nmea_callback(long long int timestamp, const char *nmea, int 
                 send_to_size += sprintf(send_buff+send_to_size, "%s\r", nmea);
 
             if (strstr(nmea, "GPRMC") != NULL )
-                MDS_LOGI(eSVC_GPS, "[GPSMGR] %s\r\n",nmea);
+            {
+                if ( print_interval++ % DEBUG_PRINT_INTERVAL_SEC)
+                {
+                    MDS_LOGI(eSVC_GPS, "[GPSMGR] %s\r\n",nmea);
+                    print_interval = 0;
+                }
+            }
          }
     }
 
@@ -112,11 +121,11 @@ int msg_recv_proc_gps_tools(const unsigned char* recv_msg, const int recv_msg_le
     int msg_size = 0;
     if (( recv_msg_len == 0 ) || (recv_msg == NULL))
     {
-        MDS_LOGI(eSVC_GPS,"%s()-(%d) : recv timeout...\r\n",__func__,__LINE__);
+        //MDS_LOGI(eSVC_GPS,"%s()-(%d) : recv timeout...\r\n",__func__,__LINE__);
         return 0;
     }
     printf("msg_recv_proc_gps_tools call \r\n");
-    MDS_LOGI(eSVC_GPS,"%s()-(%d) : recv data [%s] / [%d] ...\r\n",__func__,__LINE__, recv_msg, recv_msg_len);
+    //MDS_LOGI(eSVC_GPS,"%s()-(%d) : recv data [%s] / [%d] ...\r\n",__func__,__LINE__, recv_msg, recv_msg_len);
 
     // resp msg init.
     *resp_msg_len = 0;
@@ -126,7 +135,7 @@ int msg_recv_proc_gps_tools(const unsigned char* recv_msg, const int recv_msg_le
     {
         int run_flag = 0;
         
-        MDS_LOGI(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__GET_GPS_STAT ...\r\n",__func__,__LINE__);
+        MDS_LOGT(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__GET_GPS_STAT ...\r\n",__func__,__LINE__);
 
         if ( garden_mgr_tid == 0 )
             run_flag = 0;
@@ -139,39 +148,39 @@ int msg_recv_proc_gps_tools(const unsigned char* recv_msg, const int recv_msg_le
     }
     else if (strcmp((char*)recv_msg, GPS_IPC_MSG__SET_GPS_COLD_START) == 0)
     {
-        MDS_LOGI(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__SET_GPS_COLD_START ...\r\n",__func__,__LINE__);
+        MDS_LOGT(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__SET_GPS_COLD_START ...\r\n",__func__,__LINE__);
         gps_start(GPS_TYPE_COLD_START);
         *resp_msg_len = sprintf((char*)resp_msg,  "%s,OK", GPS_IPC_MSG__SET_GPS_COLD_START);
         
     }
     else if (strcmp((char*)recv_msg, GPS_IPC_MSG__SET_GPS_WARM_START) == 0)
     {
-        MDS_LOGI(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__SET_GPS_WARM_START ...\r\n",__func__,__LINE__);
+        MDS_LOGT(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__SET_GPS_WARM_START ...\r\n",__func__,__LINE__);
         gps_start(GPS_TYPE_WARM_START);
         *resp_msg_len = sprintf((char*)resp_msg, "%s,OK", GPS_IPC_MSG__SET_GPS_WARM_START);
     }
     else if (strcmp((char*)recv_msg, GPS_IPC_MSG__SET_GPS_STOP) == 0)
     {
-        MDS_LOGI(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__SET_GPS_STOP ...\r\n",__func__,__LINE__);
+        MDS_LOGT(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__SET_GPS_STOP ...\r\n",__func__,__LINE__);
         gps_stop();
         *resp_msg_len = sprintf((char*)resp_msg,  "%s,OK", GPS_IPC_MSG__SET_GPS_STOP);
     }
     else if (strcmp((char*)recv_msg, GPS_IPC_MSG__SET_GPS_RESET_COLD_BOOT) == 0)
     {
-        MDS_LOGI(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__SET_GPS_RESET_COLD_BOOT ...\r\n",__func__,__LINE__);
+        MDS_LOGT(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__SET_GPS_RESET_COLD_BOOT ...\r\n",__func__,__LINE__);
         gps_stop();
         gps_start(GPS_TYPE_COLD_START);
         *resp_msg_len = sprintf((char*)resp_msg,  "%s,OK", GPS_IPC_MSG__SET_GPS_RESET_COLD_BOOT);
     }
     else if (strcmp((char*)recv_msg, GPS_IPC_MSG__SET_GPS_RESET_WARM_BOOT) == 0)
     {
-        MDS_LOGI(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__SET_GPS_RESET_WARM_BOOT ...\r\n",__func__,__LINE__);
+        MDS_LOGT(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__SET_GPS_RESET_WARM_BOOT ...\r\n",__func__,__LINE__);
         gps_stop();
         gps_start(GPS_TYPE_WARM_START);
         *resp_msg_len = sprintf((char*)resp_msg, "%s,OK", GPS_IPC_MSG__SET_GPS_RESET_WARM_BOOT);
     }
 
-    MDS_LOGI(eSVC_GPS,"%s()-(%d) : ret [%s] / [%d] ...\r\n",__func__,__LINE__, resp_msg, *resp_msg_len);
+    //MDS_LOGT(eSVC_GPS,"%s()-(%d) : ret [%s] / [%d] ...\r\n",__func__,__LINE__, resp_msg, *resp_msg_len);
     // case 2 not resp to clnt
     /*
     *resp_msg_len = 0;
@@ -190,7 +199,7 @@ int main(int argc, char* argv[])
     // ------------------------------------------------
     // debug msg out mute... 
     //   - prebuilt library has so many debug print.
-    /*
+    
 	close(0);
 	close(1);
 	close(2);
@@ -198,11 +207,12 @@ int main(int argc, char* argv[])
 	stdin = freopen("/dev/null", "r", stdin);
 	stdout = freopen("/dev/null", "w", stdout);
 	stderr = freopen("/dev/null", "rw", stderr);
-    */
+    
     // ------------------------------------------------
 
     mds_logd_init();
     mds_api_stackdump_init();
+
     MDS_LOGT(eSVC_GPS,"Program start... \r\n");
     pthread_create (&tid, NULL, gps_tool_thread, NULL);
     

@@ -8,7 +8,7 @@
 #include <signal.h>
 
 
-#define MDS_API_CALLSTACK_LOG_PATH "/data/mds/log/abort.log"
+#define MDS_API_CALLSTACK_LOG_PATH "/data/mds/log/gpsd_abort.log"
 
 
 #define SIZE_STACKDUMP 100*1024
