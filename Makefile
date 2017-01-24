@@ -97,7 +97,7 @@ LDFLAGS = -lstdc++ -lpthread $(GLIB_LIBS) $(REQUIRED_LIBS)
 CPPFLAGS = -DUSE_GLIB $(AM_CFLAGS) $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 ################################################################################
-TARGET = mds_gpsd
+TARGET = mds_gpsd3
 ################################################################################
 
 GARDEN_CPP_SRC = \
