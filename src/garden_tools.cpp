@@ -216,13 +216,18 @@ int main(int argc, char* argv[])
     MDS_LOGT(eSVC_GPS,"Program start... \r\n");
     pthread_create (&tid, NULL, gps_tool_thread, NULL);
     
-    if ( argc > 1)
+    if ( argc == 2)
     {
-        if( strcmp(argv[1],"warm") == 0 )
+        if ( strcmp(argv[1],"warm") == 0 )
             gps_start(GPS_TYPE_WARM_START);
-        else
+        else if ( strcmp(argv[1],"cold") == 0 )
             gps_start(GPS_TYPE_COLD_START);
     }
+    
+    // default warm boot
+    if ( argc == 1 )
+        gps_start(GPS_TYPE_WARM_START);
+
 
     udp_ipc_server_start(UDP_IPC_PORT__GPS_MGR_CH, msg_recv_proc_gps_tools);
 
