@@ -4,7 +4,8 @@
 DESTDIR		:= $(CURDIR)/out
 
 PREFIX		:= /system
-BINDIR		:= $(PREFIX)/sbin
+SBINDIR		:= $(PREFIX)/sbin
+BINDIR		:= $(PREFIX)/$(VER)
 INITRCDIR	:= /etc/init.d
 
 ###############################################################################
@@ -132,11 +133,10 @@ $(TARGET): $(OBJS)
 install:	install-binary
 
 install-binary:	$(TARGET)
-	$(Q)$(call check_install_dir, $(DESTDIR)$(WORK_PATH)/$(VER))
-	$(Q)fakeroot cp -v $(TARGET) $(DESTDIR)$(WORK_PATH)/$(VER)/$(TARGET)
 	$(Q)$(call check_install_dir, $(DESTDIR)$(BINDIR))
 	$(Q)fakeroot cp -v $(TARGET) $(DESTDIR)$(BINDIR)/$(TARGET)
-	
+	$(Q)$(call check_install_dir, $(DESTDIR)$(SBINDIR))
+	$(Q)fakeroot cp -v $(TARGET) $(DESTDIR)$(SBINDIR)/$(TARGET)
 clean :
 	rm -rf $(OBJS)
 	rm -rf $(TARGET)
