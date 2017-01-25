@@ -192,6 +192,31 @@ int msg_recv_proc_gps_tools(const unsigned char* recv_msg, const int recv_msg_le
 
 int main(int argc, char* argv[])
 {
+	int pid, sid;
+	int count = 0;
+	pid = fork();
+	while(pid < 0)
+	{
+		perror("fork error : ");
+		pid = fork();
+		if(count == 10) {
+			exit(0);
+		}
+		sleep(10);
+		count++;
+	}
+
+	if(pid > 0) {
+		exit(EXIT_SUCCESS);
+	}
+
+	sid = setsid();
+	if(sid < 0) {
+		exit(EXIT_FAILURE);
+	}
+
+
+	chdir("/");
 
     pthread_t tid;
     //const char cmd_start_agps[] = "-r 0 -l 365 -t 86400 -m 1 -n 1 -c /etc/gps.conf -S 1,lte-internet.sktelecom.com,0";
