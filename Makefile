@@ -132,6 +132,8 @@ $(TARGET): $(OBJS)
 install:	install-binary
 
 install-binary:	$(TARGET)
+	$(Q)$(call check_install_dir, $(DESTDIR)$(WORK_PATH)/$(VER))
+	$(Q)fakeroot cp -v $(TARGET) $(DESTDIR)$(WORK_PATH)/$(VER)/$(TARGET)
 	$(Q)$(call check_install_dir, $(DESTDIR)$(BINDIR))
 	$(Q)fakeroot cp -v $(TARGET) $(DESTDIR)$(BINDIR)/$(TARGET)
 	
