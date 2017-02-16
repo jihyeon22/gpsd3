@@ -247,6 +247,8 @@ int main(int argc, char* argv[])
             gps_start(GPS_TYPE_WARM_START);
         else if ( strcmp(argv[1],"cold") == 0 )
             gps_start(GPS_TYPE_COLD_START);
+        else if ( strcmp(argv[1],"nostart") == 0 )
+            ; // nothing..
     }
     
     // default warm boot
