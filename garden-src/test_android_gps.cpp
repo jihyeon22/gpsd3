@@ -414,6 +414,8 @@ void notify_main_thread_of_atlcb() {
 // location-xtra library calls this function back when data is ready
 void test_xtra_client_data_callback(char * data,int length) {
 
+    garden_print("## test_xtra_client_data_callback ## ");
+
     pthread_mutex_lock (&test_thread_mutex);
 
     g_xtra_data_file = fopen(XTRA_DATA_FILE_NAME,"w");
@@ -443,6 +445,8 @@ void test_xtra_client_data_callback(char * data,int length) {
 
 // location-xtra library calls this function back when time is ready
 void test_xtra_client_time_callback(int64_t utcTime, int64_t timeReference, int uncertainty) {
+
+    garden_print("## test_xtra_client_time_callback ## ");
 
     pthread_mutex_lock (&test_thread_mutex);
 
@@ -679,8 +683,9 @@ pthread_t test_garden_create_thread_cb (const char *name, void (*start) (void *)
 
 void test_garden_xtra_download_req_cb ()
 {
-
+    garden_print ("## gps_xtra_download_request ##: disable");
     if(!sOptions.enableXtra) {
+        garden_print ("## gps_xtra_download_request ##: disable");
         return;
     }
     garden_print ("## gps_xtra_download_request ##:");
