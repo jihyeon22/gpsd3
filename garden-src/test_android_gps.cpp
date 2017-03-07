@@ -683,12 +683,11 @@ pthread_t test_garden_create_thread_cb (const char *name, void (*start) (void *)
 
 void test_garden_xtra_download_req_cb ()
 {
-    garden_print ("## gps_xtra_download_request ##: disable");
     if(!sOptions.enableXtra) {
         garden_print ("## gps_xtra_download_request ##: disable");
         return;
     }
-    garden_print ("## gps_xtra_download_request ##:");
+    garden_print ("## gps_xtra_download_request ##: start");
     XtraClientInterfaceType const * pXtraClientInterface = get_xtra_client_interface();
 
     // Pass on the data request to Xtra Client
@@ -732,7 +731,6 @@ void test_garden_xtra_report_server_cb(const char* server1, const char* server2,
 
 void test_agps_status_cb (AGpsExtStatus * status)
 {
-
     garden_print ("## test_agps_status_cb ##");
     if(sOptions.niSuplFlag) {
         static int niCount = 1;
