@@ -996,10 +996,14 @@ int test_main ()
     int niCount = 1;
     for(;niCount<= sOptions.niCount;++niCount)
     {
+        struct timespec ts;
+        ts.tv_sec = 5;
+
         //wait for NI back to back test to finish
         garden_print("Waiting for NI Back to back tests to finish...");
         pthread_mutex_lock (&wait_count_mutex);
-        pthread_cond_wait(&wait_count_cond, &wait_count_mutex);
+        //pthread_cond_wait(&wait_count_cond, &wait_count_mutex);
+        pthread_cond_timedwait(&wait_count_cond, &wait_count_mutex,&ts);
         pthread_mutex_unlock (&wait_count_mutex);
 
         // IF NI SUPL back to back tests are being conducted
@@ -1008,7 +1012,8 @@ int test_main ()
             // If NI SUPL tests are being conducted wait for ATL callback
             garden_print("Waiting for ATL Callback...");
             pthread_mutex_lock (&wait_atlcb_mutex);
-            pthread_cond_wait(&wait_atlcb_cond, &wait_atlcb_mutex);
+            //pthread_cond_wait(&wait_atlcb_cond, &wait_atlcb_mutex);
+            pthread_cond_timedwait(&wait_atlcb_cond, &wait_atlcb_mutex,&ts);
             pthread_mutex_unlock (&wait_atlcb_mutex);
         }
 
@@ -1018,8 +1023,11 @@ int test_main ()
     {
         pthread_mutex_lock (&session_status_mutex);
         if(g_checkForEngineOff) {
+            struct timespec ts;
+            ts.tv_sec = 5;
             garden_print ("Waiting for Engine off...");
-            pthread_cond_wait(&session_status_cond, &session_status_mutex);
+            //pthread_cond_wait(&session_status_cond, &session_status_mutex);
+            pthread_cond_timedwait(&session_status_cond, &session_status_mutex, &ts);
         }
         pthread_mutex_unlock (&session_status_mutex);
     }
@@ -1032,6 +1040,8 @@ int test_main ()
     pthread_mutex_unlock (&wait_xtratime_mutex); */
 
     // Wait for xtra data call back if XTRA is enabled
+    // reset 을 할경우 간혹 data callback 이 타지 않아 무한정 기다리는경우 발생
+    /*
     if(sOptions.enableXtra) {
         if(g_checkForXtraDataCallBack) {
             garden_print("Waiting for XTRA data call back ...");
@@ -1039,7 +1049,7 @@ int test_main ()
             pthread_cond_wait (&wait_xtradata_cond,&wait_xtradata_mutex);
             pthread_mutex_unlock (&wait_xtradata_mutex);
         }
-    }
+    }*/
 
     location_test_interface_ptr->location_close();
 

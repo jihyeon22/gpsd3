@@ -13,11 +13,16 @@
 int garden_force_stop = 0;
 int garden_entry (int argc, char *argv[]);
 pthread_t garden_mgr_tid = 0;
+
+static int gps_thread_stat = 0;
+
 // ------------------------------------------------
 static int _devide_argument(char* buff, int buff_len, char* argv[]);
 static int _gps_start(int stat);
 static int _gps_stop();
 void mds_api_stackdump_init(void);
+
+static int _gps_default_type = GPS_TYPE_AGPS;
 
 #define MAX_RET_BUFF_SIZE 1024
 
@@ -85,21 +90,82 @@ void *garden_mgr_thread (void *args)
     int gps_type = *((int *) args);
     free(args);
 
+    gps_thread_stat = 1;
+
     MDS_LOGI(eSVC_GPS,"gps mgr thread start type :: %d\r\n", gps_type);
 
     _gps_start(gps_type);
+
+    gps_thread_stat = 0;
+
     MDS_LOGI(eSVC_GPS,"gps mgr thread end type :: %d\r\n", gps_type);
 
 }
 
 int gps_start(int gps_type)
 {
-    if ( garden_mgr_tid != 0)
+    if ( gps_thread_stat != 0)
         return -1;
-    int* gpt_type_p = (int*)malloc(sizeof(int));
-    *gpt_type_p = gps_type;
+    int* gps_type_p = (int*)malloc(sizeof(int));
 
-    pthread_create(&garden_mgr_tid, NULL, garden_mgr_thread, (void* )gpt_type_p);
+    switch ( _gps_default_type )
+    {
+        case GPS_TYPE_AGPS:
+        {
+            if ( gps_type ==  GPS_TYPE_WARM_START)
+            {
+                MDS_LOGT(eSVC_GPS,"GPS START :: AGPS / WARM start  \r\n");
+                *gps_type_p = GPS_CMD_TYPE_AGPS_WARM_START;
+            }
+            else if ( gps_type ==  GPS_TYPE_COLD_START)
+            {
+                MDS_LOGT(eSVC_GPS,"GPS START :: AGPS / COLD start \r\n");
+                *gps_type_p = GPS_CMD_TYPE_AGPS_COLD_START;
+            }
+            break;
+        }
+        case GPS_TYPE_SGPS:
+        {
+            if ( gps_type ==  GPS_TYPE_WARM_START)
+            {
+                MDS_LOGT(eSVC_GPS,"GPS START :: SGPS / WARM start \r\n");
+                *gps_type_p = GPS_CMD_TYPE_SGPS_WARM_START;
+            }
+            else if ( gps_type ==  GPS_TYPE_COLD_START)
+            {
+                MDS_LOGT(eSVC_GPS,"GPS START :: SGPS / COLD start \r\n");
+                *gps_type_p = GPS_CMD_TYPE_SGPS_COLD_START;
+            }
+            break;
+        }
+        case GPS_TYPE_SGPS_WITH_XTRA:
+        {
+            if ( gps_type ==  GPS_TYPE_WARM_START)
+            {
+                MDS_LOGT(eSVC_GPS,"GPS START :: SGPS_XTRA / WARM start \r\n");
+                *gps_type_p = GPS_CMD_TYPE_SGPS_WITH_XTRA_WARM_START;
+            }
+            else if ( gps_type ==  GPS_TYPE_COLD_START)
+            {
+                MDS_LOGT(eSVC_GPS,"GPS START :: SGPS_XTRA / COLD start \r\n");
+                *gps_type_p = GPS_CMD_TYPE_SGPS_WITH_XTRA_COLD_START;
+            }
+            break;
+        }
+        default :
+        {
+            if ( gps_type ==  GPS_TYPE_WARM_START)
+                *gps_type_p = GPS_CMD_TYPE_AGPS_WARM_START;
+            else if ( gps_type ==  GPS_TYPE_COLD_START)
+                *gps_type_p = GPS_CMD_TYPE_AGPS_COLD_START;
+            break;
+        }
+    }
+
+
+   // *gps_type_p = gps_type;
+
+    pthread_create(&garden_mgr_tid, NULL, garden_mgr_thread, (void* )gps_type_p);
 }
 
 void gps_stop()
@@ -111,6 +177,9 @@ void gps_stop()
     void *ignored;
     pthread_join (garden_mgr_tid, &ignored);
     garden_mgr_tid = 0;
+
+    gps_thread_stat = 0;
+
     MDS_LOGI(eSVC_GPS,"gps mgr thread stop end...\r\n");
 }
 
@@ -137,7 +206,7 @@ int msg_recv_proc_gps_tools(const unsigned char* recv_msg, const int recv_msg_le
         
         MDS_LOGT(eSVC_GPS,"%s()-(%d) : GPS_IPC_MSG__GET_GPS_STAT ...\r\n",__func__,__LINE__);
 
-        if ( garden_mgr_tid == 0 )
+        if ( gps_thread_stat == 0 )
             run_flag = 0;
         else
             run_flag = 1;
@@ -189,11 +258,15 @@ int msg_recv_proc_gps_tools(const unsigned char* recv_msg, const int recv_msg_le
     return 0;
 }
 
+#define GPS_THREAD_INVALID_CHK_CNT  10
 
 int main(int argc, char* argv[])
 {
 	int pid, sid;
 	int count = 0;
+
+    int no_start_flag = 0;
+
 	pid = fork();
 	while(pid < 0)
 	{
@@ -241,26 +314,82 @@ int main(int argc, char* argv[])
     MDS_LOGT(eSVC_GPS,"Program start... \r\n");
     pthread_create (&tid, NULL, gps_tool_thread, NULL);
     
-    if ( argc == 2)
+    // default warm boot
+    if ( argc == 1 )
     {
+        _gps_default_type = GPS_TYPE_AGPS;
+        gps_start(GPS_TYPE_WARM_START);
+    }
+
+    // 하위버젼 호환성 : 기존에는 argument 가 2개였다.
+    if ( argc == 2 )
+    {
+        _gps_default_type = GPS_TYPE_AGPS;
         if ( strcmp(argv[1],"warm") == 0 )
             gps_start(GPS_TYPE_WARM_START);
         else if ( strcmp(argv[1],"cold") == 0 )
             gps_start(GPS_TYPE_COLD_START);
         else if ( strcmp(argv[1],"nostart") == 0 )
-            ; // nothing..
+            no_start_flag = 1; // nothing..
     }
-    
-    // default warm boot
-    if ( argc == 1 )
-        gps_start(GPS_TYPE_WARM_START);
 
+    if ( argc == 3 )
+    {
+        if ( strcmp(argv[1],"agps") == 0 )
+            _gps_default_type = GPS_TYPE_AGPS;
+        else if ( strcmp(argv[1],"sgps") == 0 )
+            _gps_default_type = GPS_TYPE_SGPS;
+        else if ( strcmp(argv[1],"sgps_xtra") == 0 )
+            _gps_default_type = GPS_TYPE_SGPS_WITH_XTRA;
+
+        if ( strcmp(argv[2],"warm") == 0 )
+            gps_start(GPS_TYPE_WARM_START);
+        else if ( strcmp(argv[2],"cold") == 0 )
+            gps_start(GPS_TYPE_COLD_START);
+        else if ( strcmp(argv[2],"nostart") == 0 )
+            no_start_flag = 1; // nothing..
+/*
+        if ( strcmp(argv[2],"agps") == 0 )
+            _gps_default_type = GPS_TYPE_AGPS;
+        else if ( strcmp(argv[2],"sgps") == 0 )
+            _gps_default_type = GPS_TYPE_SGPS;
+        else if ( strcmp(argv[2],"sgps_xtra") == 0 )
+            _gps_default_type = GPS_TYPE_SGPS_WITH_XTRA;
+
+        if ( strcmp(argv[1],"warm") == 0 )
+            gps_start(GPS_TYPE_WARM_START);
+        else if ( strcmp(argv[1],"cold") == 0 )
+            gps_start(GPS_TYPE_COLD_START);
+        else if ( strcmp(argv[1],"nostart") == 0 )
+            no_start_flag = 1; // nothing..
+*/
+    }
+
+    MDS_LOGT(eSVC_GPS,"gps start type [%d]  \r\n" , _gps_default_type);
 
     udp_ipc_server_start(UDP_IPC_PORT__GPS_MGR_CH, msg_recv_proc_gps_tools);
 
+    count = 0;
 
     while(1)
+    {
+        // gps thread 가 동작하고 있지 않다면 무조건 다시 시작시킨다.
+        // thread 가 동작하고있지 않으면 뭔가 이상한상태다.
+        // 단, no start 로 시작하면 굳이 자동 실행시킬 이유가 없다.
+        if (( gps_thread_stat == 0 ) && ( no_start_flag == 0 ))
+        {
+            MDS_LOGT(eSVC_GPS,"GPS THREAD is invalid stat [%d]  \r\n" , count);
+            count++;
+        }
+
+        if ( count > GPS_THREAD_INVALID_CHK_CNT)
+        {
+            count = 0;
+            gps_start(GPS_TYPE_WARM_START);
+        }
+        
         sleep(1);
+    }
     /*
     while(1)
     {
@@ -300,17 +429,45 @@ static int _gps_start(int gps_type)
 
     switch (gps_type)
     {
-        case GPS_TYPE_COLD_START:
+        case GPS_CMD_TYPE_AGPS_WARM_START:
         {
-            sprintf(tmp_buff, "%s", cmd_agps_cold_start);
+            sprintf(tmp_buff, "%s", cmd_agps_warm_start);
             MDS_LOGT(eSVC_GPS,"gps mgr cold start:: input argument %s\r\n", tmp_buff);
             tools_argc = _devide_argument(tmp_buff, 1024, tools_argv);
             break;
         }
-        case GPS_TYPE_WARM_START:
+        case GPS_CMD_TYPE_AGPS_COLD_START:
         {
-            sprintf(tmp_buff, "%s", cmd_agps_warm_start);
+            sprintf(tmp_buff, "%s", cmd_agps_cold_start);
             MDS_LOGT(eSVC_GPS,"gps mgr warm start:: input argument %s\r\n", tmp_buff);
+            tools_argc = _devide_argument(tmp_buff, 1024, tools_argv);
+            break;
+        }
+        case GPS_CMD_TYPE_SGPS_WARM_START:
+        {
+            sprintf(tmp_buff, "%s", cmd_sgps_warm_start);
+            MDS_LOGT(eSVC_GPS,"gps mgr sgps warm start:: input argument %s\r\n", tmp_buff);
+            tools_argc = _devide_argument(tmp_buff, 1024, tools_argv);
+            break;
+        }
+        case GPS_CMD_TYPE_SGPS_COLD_START:
+        {
+            sprintf(tmp_buff, "%s", cmd_sgps_cold_start);
+            MDS_LOGT(eSVC_GPS,"gps mgr sgps warm start:: input argument %s\r\n", tmp_buff);
+            tools_argc = _devide_argument(tmp_buff, 1024, tools_argv);
+            break;
+        }
+        case GPS_CMD_TYPE_SGPS_WITH_XTRA_WARM_START:
+        {
+            sprintf(tmp_buff, "%s", cmd_sgps_with_xtra_warm_start);
+            MDS_LOGT(eSVC_GPS,"gps mgr sgps warm start:: input argument %s\r\n", tmp_buff);
+            tools_argc = _devide_argument(tmp_buff, 1024, tools_argv);
+            break;
+        }
+        case GPS_CMD_TYPE_SGPS_WITH_XTRA_COLD_START:
+        {
+            sprintf(tmp_buff, "%s", cmd_sgps_with_xtra_cold_start);
+            MDS_LOGT(eSVC_GPS,"gps mgr sgps warm start:: input argument %s\r\n", tmp_buff);
             tools_argc = _devide_argument(tmp_buff, 1024, tools_argv);
             break;
         }
