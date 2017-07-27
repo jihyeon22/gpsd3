@@ -681,8 +681,10 @@ pthread_t test_garden_create_thread_cb (const char *name, void (*start) (void *)
     return thread_id;
 }
 
+
 void test_garden_xtra_download_req_cb ()
 {
+
     if(!sOptions.enableXtra) {
         garden_print ("## gps_xtra_download_request ##: disable");
         return;
@@ -690,14 +692,27 @@ void test_garden_xtra_download_req_cb ()
     garden_print ("## gps_xtra_download_request ##: start");
     XtraClientInterfaceType const * pXtraClientInterface = get_xtra_client_interface();
 
-    // Pass on the data request to Xtra Client
-    pXtraClientInterface->onDataRequest();
 
+    
+    // Pass on the data request to Xtra Client
+    if ( mds_gps_tool_xtra_gps_file_chk() == 1)
+    {
+        if ( pXtraClientInterface != NULL)
+            pXtraClientInterface->onDataRequest();
+        garden_print ("## gps_xtra_download_request ##: download start");
+    }
+    else
+    {
+        garden_print ("## gps_xtra_download_request ##: download skip :: already download");
+        //return; // 아무것도 하지 않는다.
+    }
+    
     pthread_mutex_lock (&wait_xtradata_mutex);
     pthread_cond_signal (&wait_xtradata_cond);
     pthread_mutex_unlock (&wait_xtradata_mutex);
 
     // No need for test_main to wait as this method has been called
+    
     g_checkForXtraDataCallBack = 0;
 }
 
@@ -708,7 +723,8 @@ void test_garden_xtra_time_req_cb ()
     XtraClientInterfaceType const * pXtraClientInterface = get_xtra_client_interface();
 
     // Pass on the time request to Xtra Client
-    pXtraClientInterface->onTimeRequest();
+    if ( pXtraClientInterface != NULL)
+        pXtraClientInterface->onTimeRequest();
 
 
     pthread_mutex_lock (&wait_xtratime_mutex);
@@ -885,9 +901,20 @@ int test_main ()
     garden_print(print_msg);
 
     // Initialize XTRA client
+    static int xtra_engine_init_flag = 0;
     XtraClientInterfaceType const* pXtraClientInterface = get_xtra_client_interface();
     if(pXtraClientInterface != NULL) {
-        pXtraClientInterface->init(&myXtraClientDataCallback, &myXtraClientTimeCallback, &(sOptions.xtraClientConfig));
+        // garden_print ("xtra init try ... !!!!! [%d]", xtra_engine_init_flag);
+        if ( xtra_engine_init_flag == 0)
+        {
+            pXtraClientInterface->init(&myXtraClientDataCallback, &myXtraClientTimeCallback, &(sOptions.xtraClientConfig));
+            xtra_engine_init_flag = 1;
+            garden_print ("xtra init run !!!!! [%d]", xtra_engine_init_flag);
+        }
+        else
+        {
+            garden_print ("xtra init skip !!!!! [%d]", xtra_engine_init_flag);
+        }
     }
 
     rc = location_test_interface_ptr->location_init(&my_garden_cb);
@@ -1058,7 +1085,7 @@ int test_main ()
 
     pXtraClientInterface = get_xtra_client_interface();
     if(pXtraClientInterface != NULL) {
-    //    pXtraClientInterface->stop();
+        //pXtraClientInterface->stop();
     }
 
     garden_print("Xtra Client shutdown complete");
@@ -1284,6 +1311,12 @@ int garden_entry (int argc, char *argv[])
             strlcpy(sOptions.gpsConfPath,optarg,256);
             // Initialize by reading the gps.conf file
             UTIL_READ_CONF(sOptions.gpsConfPath, cfg_parameter_table);
+
+            // force setting..
+            sOptions.agpsData.suplVer = GPS_CONF_AGPS_SUPL_VER;
+            memset(sOptions.agpsData.suplHost, 0x00, sizeof(sOptions.agpsData.suplHost));
+            strcpy(sOptions.agpsData.suplHost, GPS_CONF_AGPS_SUPL_SVR_ADDR);
+            sOptions.agpsData.suplPort = GPS_CONF_AGPS_SUPL_SVR_PORT;
             garden_print("Parameters read from the config file :");
             garden_print("**************************************");
             garden_print("SUPL_VER      : 0x%X",sOptions.agpsData.suplVer);

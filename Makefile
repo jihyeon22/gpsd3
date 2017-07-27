@@ -93,7 +93,7 @@ REQUIRED_LIBS = $(LIB_ROOT) \
                 $(EXT_LIB)
 
 
-CFLAGS = -DUSE_GLIB $(AM_CFLAGS) $(GLIB_CFLAGS) -I./src -I./garden-src
+CFLAGS += -DUSE_GLIB $(AM_CFLAGS) $(GLIB_CFLAGS) -I./src -I./garden-src
 LDFLAGS = -lstdc++ -lpthread $(GLIB_LIBS) $(REQUIRED_LIBS)
 CPPFLAGS = -DUSE_GLIB $(AM_CFLAGS) $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 

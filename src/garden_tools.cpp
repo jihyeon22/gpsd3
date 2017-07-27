@@ -8,6 +8,7 @@
 #include "mds_udp_ipc.h"
 #include "gps_ipc.h"
 
+
 //#include "test_android_gps.h"
 // ------------------------------------------------
 int garden_force_stop = 0;
@@ -26,7 +27,53 @@ static int _gps_default_type = GPS_TYPE_AGPS;
 
 #define MAX_RET_BUFF_SIZE 1024
 
-#define DEBUG_PRINT_INTERVAL_SEC    10
+static int xtra_gps_file_download_req_cnt = 0;
+static int xtra_gps_file_download_fail_cnt = 0;
+
+static int _isExistFile(const char *file, int timeout)
+{
+    while(timeout--) {
+        if(access(file, F_OK) == 0) {
+            return 0;
+        }
+        printf(".\n");
+        sleep(1);
+    }
+    
+    printf("%s> %s can not open!!!!\n", __func__, file);
+
+    return -1;
+}
+int mds_gps_tool_xtra_gps_file_chk()
+{
+    int ret = 0;
+    if ( _isExistFile(XTRA_DATA_FILE_NAME, 1) == 0 )
+    {
+        xtra_gps_file_download_req_cnt++;
+    }
+    else 
+    {
+        xtra_gps_file_download_fail_cnt++;
+    }
+
+    if ( ( xtra_gps_file_download_req_cnt > GPS_XTRA_DOWNLOAD_MAX_CNT ) || ( xtra_gps_file_download_fail_cnt > (GPS_XTRA_DOWNLOAD_MAX_CNT * 2 )) )
+        ret = 0;
+    else 
+        ret = 1;
+
+    MDS_LOGI(eSVC_GPS, " >> xtra gps download => chk [%d]/[%d] fail [%d]/[%d] => ret [%d]\r\n", xtra_gps_file_download_req_cnt,GPS_XTRA_DOWNLOAD_MAX_CNT,  xtra_gps_file_download_fail_cnt, GPS_XTRA_DOWNLOAD_MAX_CNT*2, ret);
+    return ret;
+}
+
+int mds_gps_tool_xtra_gps_file_chk_clr()
+{
+    MDS_LOGI(eSVC_GPS, " >> xtra gps file clear!!!\r\n");
+    xtra_gps_file_download_req_cnt = 0;
+    xtra_gps_file_download_fail_cnt = 0;
+
+    unlink(XTRA_DATA_FILE_NAME);
+}
+
 // ------------------------------------------------
 // nmea call back
 // ------------------------------------------------
@@ -61,7 +108,7 @@ void mds_gps_tools_nmea_callback(long long int timestamp, const char *nmea, int 
 
             if (strstr(nmea, "GPRMC") != NULL )
             {
-                if ( print_interval++ % DEBUG_PRINT_INTERVAL_SEC)
+                if ( print_interval++ > DEBUG_PRINT_INTERVAL_SEC)
                 {
                     MDS_LOGI(eSVC_GPS, "[GPSMGR] %s\r\n",nmea);
                     print_interval = 0;
@@ -441,6 +488,7 @@ static int _gps_start(int gps_type)
             sprintf(tmp_buff, "%s", cmd_agps_cold_start);
             MDS_LOGT(eSVC_GPS,"gps mgr warm start:: input argument %s\r\n", tmp_buff);
             tools_argc = _devide_argument(tmp_buff, 1024, tools_argv);
+            mds_gps_tool_xtra_gps_file_chk_clr();
             break;
         }
         case GPS_CMD_TYPE_SGPS_WARM_START:
@@ -455,6 +503,7 @@ static int _gps_start(int gps_type)
             sprintf(tmp_buff, "%s", cmd_sgps_cold_start);
             MDS_LOGT(eSVC_GPS,"gps mgr sgps warm start:: input argument %s\r\n", tmp_buff);
             tools_argc = _devide_argument(tmp_buff, 1024, tools_argv);
+            mds_gps_tool_xtra_gps_file_chk_clr();
             break;
         }
         case GPS_CMD_TYPE_SGPS_WITH_XTRA_WARM_START:
@@ -469,6 +518,7 @@ static int _gps_start(int gps_type)
             sprintf(tmp_buff, "%s", cmd_sgps_with_xtra_cold_start);
             MDS_LOGT(eSVC_GPS,"gps mgr sgps warm start:: input argument %s\r\n", tmp_buff);
             tools_argc = _devide_argument(tmp_buff, 1024, tools_argv);
+            mds_gps_tool_xtra_gps_file_chk_clr();
             break;
         }
         default : 
