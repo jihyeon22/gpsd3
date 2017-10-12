@@ -74,6 +74,30 @@ int mds_gps_tool_xtra_gps_file_chk_clr()
     unlink(XTRA_DATA_FILE_NAME);
 }
 
+
+int mds_api_remove_etc_char(const char *s, char* target, int target_len)
+{
+	int cnt = 0;
+
+	while (*s)
+	{
+		//printf("strlen [%c]\r\n" ,*s);
+		if ( ( *s >= 33 ) && ( *s <= 126 ) )
+		{
+            target[cnt] = *s;
+            //printf("target[%d] => [0x%x][%c]\r\n", cnt, target[cnt], target[cnt]);
+			cnt++;
+			
+			if (cnt > target_len)
+				return -1;
+		}
+		s++;
+	}
+	//printf("strlen count [%d]\r\n" ,cnt);
+	return cnt;
+}
+
+FILE *log_fd = NULL;
 // ------------------------------------------------
 // nmea call back
 // ------------------------------------------------
@@ -83,40 +107,59 @@ void mds_gps_tools_nmea_callback(long long int timestamp, const char *nmea, int 
     static int send_to_size = 0;
 
     static int print_interval = 0;
-
+	
+	char tmp_filter_buff[1024] = {0,};
+	char tmp_filter_len = 0;
+	
     int cur_sec = timestamp % 10000;
     static int last_sec = cur_sec;
     cur_sec = cur_sec / 1000;
+
     printf("mds_gps_tools_nmea_callback++\r\n");
-    if ( last_sec != cur_sec )
+    
+//	fprintf(log_fd, " >> %s", nmea);
+
+	if(nmea != NULL)
+	{
+		//if ( (strstr(nmea, "GPGSV") != NULL ) || (strstr(nmea, "GPRMC") != NULL ) || (strstr(nmea, "GPGGA") != NULL ) || (strstr(nmea, "GPGSA") != NULL ) 
+		if ( strstr(nmea, "$GP") == NULL)
+			return;
+		
+		if ( ( send_to_size + length ) > 1024 )
+		{
+			MDS_LOGE(eSVC_GPS, "[GPSMGR] gps buffer is full\r\n");
+			send_to_size = 0;
+			memset(send_buff, 0x00, 1024);
+		}
+		
+		send_to_size += sprintf(send_buff+send_to_size, "%s\r", nmea);
+
+		if (strstr(nmea, "GPRMC") != NULL )
+		{
+			if ( print_interval++ > DEBUG_PRINT_INTERVAL_SEC)
+			{
+				MDS_LOGI(eSVC_GPS, "[GPSMGR] %s\r\n",nmea);
+				print_interval = 0;
+			}
+		}
+	}
+
+    //if ( last_sec != cur_sec ) // TIME SYNC FAIL... 
+    if (strstr(nmea, "GPGGA") != NULL )
     {
         // send to data..
         last_sec = cur_sec;
         // send data...
-         //MDS_LOGI(eSVC_GPS, "[GPSMGR] gps data send : length %d \r\n",send_to_size);
-         udp_ipc_broadcast_send(UDP_IPC_PORT__GPS_NMEA_DATA_CH, (unsigned char*)send_buff, send_to_size);
+        // MDS_LOGI(eSVC_GPS, "[GPSMGR] gps data send : length %d \r\n",send_to_size);
+        udp_ipc_broadcast_send(UDP_IPC_PORT__GPS_NMEA_DATA_CH, (unsigned char*)send_buff, send_to_size);
+
+//      fprintf(log_fd, "==============================================================");
+//      fprintf(log_fd, "%s", send_buff);
+//      fprintf(log_fd, "==============================================================");
 
         send_to_size = 0;
         memset(send_buff, 0x00, 1024);
     }
-    else
-    {
-         if(nmea != 0)
-         {
-            if ( (strstr(nmea, "GPGSV") != NULL ) || (strstr(nmea, "GPRMC") != NULL ) || (strstr(nmea, "GPGGA") != NULL ) || (strstr(nmea, "GPGSA") != NULL ) )
-                send_to_size += sprintf(send_buff+send_to_size, "%s\r", nmea);
-
-            if (strstr(nmea, "GPRMC") != NULL )
-            {
-                if ( print_interval++ > DEBUG_PRINT_INTERVAL_SEC)
-                {
-                    MDS_LOGI(eSVC_GPS, "[GPSMGR] %s\r\n",nmea);
-                    print_interval = 0;
-                }
-            }
-         }
-    }
-
 }
 
 // ------------------------------------------------
@@ -344,15 +387,19 @@ int main(int argc, char* argv[])
     // ------------------------------------------------
     // debug msg out mute... 
     //   - prebuilt library has so many debug print.
-    
+
+    log_fd = stderr;
+
 	close(0);
 	close(1);
-	close(2);
+	//close(2);
 
 	stdin = freopen("/dev/null", "r", stdin);
 	stdout = freopen("/dev/null", "w", stdout);
-	stderr = freopen("/dev/null", "rw", stderr);
+	//stderr = freopen("/dev/null", "rw", stderr);
+
     
+        
     // ------------------------------------------------
 
     mds_logd_init();
