@@ -473,7 +473,11 @@ int main(int argc, char* argv[])
         if (( gps_thread_stat == 0 ) && ( no_start_flag == 0 ))
         {
             MDS_LOGT(eSVC_GPS,"GPS THREAD is invalid stat [%d]  \r\n" , count);
-            count++;
+
+            // thread 가 생성되었으나 안동작할경우만 감시
+            // 강제 gps off 한상태에서 자동 재시작하는 버그
+            if (garden_mgr_tid != 0)
+                count++;
         }
 
         if ( count > GPS_THREAD_INVALID_CHK_CNT)
